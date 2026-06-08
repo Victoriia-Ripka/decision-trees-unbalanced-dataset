@@ -78,7 +78,7 @@ F1-score jest metryką wiodącą — uwzględnia kompromis między precyzją a c
 
 ## Datasety
 
-Pobierz i umieść pliki CSV w `data/raw/<nazwa>/` (folder nie jest śledzony przez git).
+Pobierz i umieść pliki CSV w `data/raw/<nazwa>/*index.csv*` (folder nie jest śledzony przez git).
 
 | Dataset | Próbki | Większościowa | Mniejszościowa | Num. | Cat. | Niezbalans. | Źródło |
 |---|---|---|---|---|---|---|---|
