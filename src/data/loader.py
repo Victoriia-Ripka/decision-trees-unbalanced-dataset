@@ -62,14 +62,14 @@ def load_dataset(cfg: DatasetConfig) -> tuple[np.ndarray, np.ndarray, list[str]]
     processed = _processed_path(cfg.name)
 
     if os.path.exists(processed):
-        print(f"  [cache] Loading processed data from {processed}")
+        print(f"[cache] Loading processed data from {processed}")
         df = pd.read_csv(processed)
     else:
-        print(f"  [raw]   Processing {cfg.file_path} ...")
+        print(f"[raw]   Processing {cfg.file_path} ...")
         df = _process_raw(cfg)
         os.makedirs(os.path.dirname(processed), exist_ok=True)
         df.to_csv(processed, index=False)
-        print(f"  [raw]   Saved processed data to {processed}")
+        print(f"[raw]   Saved processed data to {processed}")
 
     feature_cols = [c for c in df.columns if c != "__target__"]
     X = df[feature_cols].values.astype(np.float64)

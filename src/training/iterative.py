@@ -1,10 +1,14 @@
 import numpy as np
+from tqdm import tqdm
 from src.models.cart import CARTModel
 from src.evaluation.metrics import compute_metrics
 
 # Hyperparameter grid for n_samples (fraction of false positives added each iteration)
 N_SAMPLES_FRACS  = [0.005, 0.01, 0.02, 0.05, 0.10, 0.15, 0.25, 0.35, 1.0]
 N_SAMPLES_LABELS = ["0.5%", "1%", "2%", "5%", "10%", "15%", "25%", "35%", "rest"]
+
+# Stop when pool drops below this fraction of original size (hard floor).
+_MIN_POOL_FRACTION = 0.01
 
 
 def _select_false_positives(
@@ -13,9 +17,9 @@ def _select_false_positives(
     y_pool: np.ndarray,
 ) -> np.ndarray:
     """
-    Return indices (into X_pool) of majority-class samples that the model
-    incorrectly predicts as the minority class (false positives).
-    y_pool contains only majority-class labels, so any wrong prediction is a FP.
+    Return indices (into X_pool) of majority-class samples incorrectly
+    predicted as the minority class (false positives).
+    y_pool is all majority class, so any misprediction is a FP.
     """
     preds = model.predict(X_pool)
     return np.where(preds != y_pool)[0]
@@ -29,15 +33,19 @@ def run_single(
     X_test: np.ndarray,
     y_test: np.ndarray,
     n_samples_frac: float,
+    patience: int = 10,
+    max_iterations: int = 500,
     random_state=None,
+    _run_label: str = "",
 ) -> list[dict]:
     """
-    One full experiment for a given n_samples_frac.
+    One full iterative experiment for a given n_samples_frac.
 
-    Starts from the balanced undersampled training set and iteratively
-    adds n_samples_frac of the current false positives to the training set.
-    Returns a list of metric dicts, one per iteration (iteration=0 is the
-    first model trained on the balanced set).
+    Stops when (first condition met):
+    - pool is exhausted (< 1% of original size), OR
+    - no false positives remain, OR
+    - F1 has not improved for `patience` consecutive iterations (convergence), OR
+    - max_iterations is reached (hard safety cap, should rarely trigger)
     """
     rng = np.random.default_rng(random_state)
     X_train = X_train_init.copy()
@@ -45,10 +53,22 @@ def run_single(
     X_pool  = X_pool_init.copy()
     y_pool  = y_pool_init.copy()
 
-    records = []
-    iteration = 0
+    pool_size_init = len(X_pool)
+    min_pool_size  = max(1, int(pool_size_init * _MIN_POOL_FRACTION))
 
-    while True:
+    records = []
+    best_f1 = -1.0
+    no_improve = 0
+
+    bar = tqdm(
+        range(max_iterations),
+        desc=f"    iter{_run_label}",
+        leave=False,
+        unit="iter",
+        dynamic_ncols=True,
+    )
+
+    for iteration in bar:
         model = CARTModel(random_state=int(rng.integers(0, 1_000_000)))
         model.fit(X_train, y_train)
 
@@ -60,7 +80,24 @@ def run_single(
             "pool_remaining": len(X_pool),
         })
 
-        if len(X_pool) == 0:
+        # Convergence check
+        if metrics["f1"] > best_f1:
+            best_f1 = metrics["f1"]
+            no_improve = 0
+        else:
+            no_improve += 1
+
+        bar.set_postfix(
+            f1=f"{metrics['f1']:.3f}",
+            best=f"{best_f1:.3f}",
+            no_imp=no_improve,
+            pool=len(X_pool),
+        )
+
+        if no_improve >= patience:
+            break
+
+        if len(X_pool) <= min_pool_size:
             break
 
         fp_idx = _select_false_positives(model, X_pool, y_pool)
@@ -82,8 +119,7 @@ def run_single(
         X_pool = X_pool[keep]
         y_pool = y_pool[keep]
 
-        iteration += 1
-
+    bar.close()
     return records
 
 
@@ -96,27 +132,48 @@ def run_iterative_training(
     y_test: np.ndarray,
     n_samples_frac: float,
     n_runs: int = 25,
+    patience: int = 10,
+    max_iterations: int = 500,
     random_state=None,
 ) -> list[dict]:
     """
-    Repeat run_single n_runs times (for statistical averaging).
+    Repeat run_single n_runs times for statistical averaging.
     Returns all records tagged with run index and n_samples_frac.
     """
     rng = np.random.default_rng(random_state)
     all_records = []
 
-    for run in range(n_runs):
+    runs_bar = tqdm(
+        range(n_runs),
+        desc=f"  runs (n_samples={n_samples_frac:.3f})",
+        leave=False,
+        unit="run",
+        dynamic_ncols=True,
+    )
+
+    for run in runs_bar:
         seed = int(rng.integers(0, 1_000_000))
         records = run_single(
             X_train_init, y_train_init,
             X_pool_init, y_pool_init,
             X_test, y_test,
             n_samples_frac,
+            patience=patience,
+            max_iterations=max_iterations,
             random_state=seed,
+            _run_label=f" run={run}",
         )
         for r in records:
             r["run"] = run
             r["n_samples_frac"] = n_samples_frac
+
         all_records.extend(records)
+
+        if records:
+            last = records[-1]
+            runs_bar.set_postfix(
+                iters=last["iteration"],
+                f1=f"{last['f1']:.3f}",
+            )
 
     return all_records

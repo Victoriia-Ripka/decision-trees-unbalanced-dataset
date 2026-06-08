@@ -16,6 +16,8 @@ class DatasetConfig:
 class ExperimentConfig:
     dataset: DatasetConfig
     n_runs: int = 25
+    patience: int = 10
+    max_iterations: int = 500
     test_size: float = 0.1
     random_state: int = 42
     results_dir: str = "experiments/results"

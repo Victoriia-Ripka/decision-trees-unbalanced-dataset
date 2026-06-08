@@ -32,6 +32,18 @@ def parse_args():
         default=42,
         help="Global random seed (default: 42).",
     )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=10,
+        help="Stop iterating after this many steps without F1 improvement (default: 10).",
+    )
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=500,
+        help="Hard cap on inner loop iterations per run (default: 500).",
+    )
     return parser.parse_args()
 
 
@@ -44,6 +56,8 @@ def main():
         cfg = ExperimentConfig(
             dataset=DATASETS[name],
             n_runs=args.n_runs,
+            patience=args.patience,
+            max_iterations=args.max_iterations,
             results_dir=args.results_dir,
             random_state=args.random_state,
         )

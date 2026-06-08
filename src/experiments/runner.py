@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from src.data.loader import load_dataset
 from src.training.sampling import stratified_split, undersample
@@ -31,7 +32,7 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
     X, y, feature_names = load_dataset(cfg.dataset)
 
     total = len(y)
-    minority = y.sum()
+    minority = int(y.sum())
     majority = total - minority
 
     print(f"Loaded: {X.shape[0]} samples, {X.shape[1]} features")
@@ -49,44 +50,52 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
     m0 = CARTModel(random_state=cfg.random_state)
     m0.fit(X_train_full, y_train_full)
     m0_metrics = compute_metrics(y_test, m0.predict(X_test))
-    print(f"\nBaseline M_0 (unbalanced): F1={m0_metrics['f1']:.4f}, "
-          f"TPR={m0_metrics['tpr']:.4f}, Accuracy={m0_metrics['accuracy']:.4f}")
+    print(f"\nBaseline M_0 (unbalanced): F1={m0_metrics['f1']:.4f}  "
+          f"TPR={m0_metrics['tpr']:.4f}  Accuracy={m0_metrics['accuracy']:.4f}")
 
     X_train_bal, y_train_bal, X_pool, y_pool = undersample(
         X_train_full, y_train_full, random_state=cfg.random_state
     )
-    print(f"After undersampling: train={len(X_train_bal)}, pool={len(X_pool)}")
+    print(f"After undersampling: train={len(X_train_bal)}, pool={len(X_pool)}\n")
 
     all_records = []
 
-    # Baseline metrics as reference row
     all_records.append({
         **m0_metrics,
-        "dataset":       cfg.dataset.name,
-        "n_samples_frac": None,
+        "dataset":         cfg.dataset.name,
+        "n_samples_frac":  None,
         "n_samples_label": "M_0 (unbalanced)",
-        "run":            -1,
-        "iteration":      0,
-        "train_size":     len(X_train_full),
-        "pool_remaining": len(X_pool),
+        "run":             -1,
+        "iteration":       0,
+        "train_size":      len(X_train_full),
+        "pool_remaining":  len(X_pool),
     })
 
-    for frac, label in zip(N_SAMPLES_FRACS, N_SAMPLES_LABELS):
-        print(f"  n_samples={label} ...", end=" ", flush=True)
+    outer_bar = tqdm(
+        zip(N_SAMPLES_FRACS, N_SAMPLES_LABELS),
+        total=len(N_SAMPLES_FRACS),
+        desc=f"[{cfg.dataset.name}] n_samples",
+        unit="config",
+    )
+
+    for frac, label in outer_bar:
+        outer_bar.set_postfix(n_samples=label)
         records = run_iterative_training(
             X_train_bal, y_train_bal,
             X_pool, y_pool,
             X_test, y_test,
             n_samples_frac=frac,
             n_runs=cfg.n_runs,
+            patience=cfg.patience,
+            max_iterations=cfg.max_iterations,
             random_state=cfg.random_state,
         )
         for r in records:
             r["dataset"] = cfg.dataset.name
             r["n_samples_label"] = label
         all_records.extend(records)
-        print(f"done ({len(records)} records)")
 
+    print()
     df = pd.DataFrame(all_records)
     _save_results(df, cfg)
     return df
