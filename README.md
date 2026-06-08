@@ -6,7 +6,7 @@ Autorzy: Viktoriia Nowotka, Paweł Łasica
 
 ## Cel projektu
 
-Porównanie metryk jakości binarnych drzew decyzyjnych CART dla różnego stopnia niezrównoważenia zbioru treningowego. Badamy iteracyjne podejście do rozszerzania zbioru treningowego po undersamplingu — jak zmienia się jakość kolejnych modeli i jak ma się ona do modelu bazowego?
+Porównanie metryk jakości binarnych drzew decyzyjnych CART dla różnego stopnia niezrównoważenia zbioru treningowego. Badamy iteracyjne podejście do rozszerzania zbioru treningowego po undersamplingu — jak zmienia się jakość kolejnych modeli i jak ma się ona do modelu bazowego
 
 ---
 
@@ -28,7 +28,7 @@ Ze zbioru treningowego:
 
 Powstaje zbalansowany zbiór treningowy. Pozostałe (nieużyte) próbki klasy większościowej tworzą pulę kandydatów.
 
-### Krok 4 — pętla iteracyjna (25 × 9)
+### Krok 4 — pętla iteracyjna (25 x 9)
 
 Dla 25 powtórzeń (`run`), dla każdej wartości `n_samples` ∈ `{0.5%, 1%, 2%, 5%, 10%, 15%, 25%, 35%, reszta}`:
 
@@ -72,7 +72,7 @@ W każdym węźle wybierany jest podział minimalizujący nieczystość. Lewa ga
 | Precyzja | `TP / (TP + FP)` |
 | F1-score | `2 · Precyzja · TPR / (Precyzja + TPR)` |
 
-F1-score jest metryką wiodącą — uwzględnia kompromis między precyzją a czułością, co jest kluczowe przy niezbalansowanych klasach.
+F1-score jest metryką wiodącą - uwzględnia kompromis między precyzją a czułością, co jest kluczowe przy niezbalansowanych klasach.
 
 ---
 
@@ -119,21 +119,10 @@ Trzy datasety celowo różnią się stopniem niezbalansowania (bardzo wysokie / 
 │       ├── config.py                   # dataclass ExperimentConfig (n_samples, n_runs, …)
 │       └── runner.py                   # run_experiment() -> wyniki per dataset, zapis CSV
 │
-├── experiments/
-│   ├── configs/                        # konfiguracje YAML per dataset
-│   │   ├── credit_card_fraud.yaml
-│   │   ├── give_me_some_credit.yaml
-│   │   └── adult_income.yaml
-│   └── results/                        # wyjście: CSV z metrykami (PNG/PDF gitignored)
-│       ├── credit_card_fraud/
-│       ├── give_me_some_credit/
-│       └── adult_income/
-│
-├── notebooks/                          # EDA i analiza wyników
-│   ├── 01_eda_credit_card_fraud.ipynb
-│   ├── 02_eda_give_me_some_credit.ipynb
-│   ├── 03_eda_adult_income.ipynb
-│   └── 04_results_analysis.ipynb
+├── experiments/                        # wyjście: CSV z metrykami (PNG/PDF gitignored)                      
+│   ├── credit_card_fraud/
+│   ├── give_me_some_credit/
+│   └── adult_income/
 │
 ├── tests/                              # testy jednostkowe
 │   ├── test_sampling.py
@@ -149,9 +138,9 @@ Trzy datasety celowo różnią się stopniem niezbalansowania (bardzo wysokie / 
 ```
 loader.py -> preprocessor.py -> sampling.py (stratify + undersample)
                                      │
-                              iterative.py (pętla 25×9)
+                              iterative.py (pętla 25x9)
                                      │
-                              metrics.py -> runner.py -> results/*.csv
+                              metrics.py -> runner.py -> experiments/*.csv
 ```
 
 ---
@@ -180,7 +169,7 @@ python main.py --dataset give_me_some_credit
 python main.py --dataset adult_income
 ```
 
-Wyniki (CSV) trafiają do `experiments/results/<dataset>/`.
+Wyniki (CSV) trafiają do `experiments/<dataset>/`.
 
 ---
 

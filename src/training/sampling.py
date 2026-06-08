@@ -22,7 +22,7 @@ def undersample(
 
     Returns
     -------
-    X_train, y_train : balanced training set (minority_n × 2 samples)
+    X_train, y_train : balanced training set (minority_n x 2 samples)
     X_pool, y_pool   : unused majority-class samples (candidates for future iterations)
     """
     rng = np.random.default_rng(random_state)

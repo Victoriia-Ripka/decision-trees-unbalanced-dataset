@@ -13,6 +13,7 @@ from src.training.iterative import (
 from src.models.cart import CARTModel
 from src.evaluation.metrics import compute_metrics
 from src.experiments.config import ExperimentConfig
+from src.experiments.plots import generate_all_plots
 
 
 def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
@@ -25,9 +26,9 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
     4. For each n_samples value: 25 repetitions of iterative training
     5. Return aggregated results as DataFrame
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'='*128}")
     print(f"Dataset: {cfg.dataset.name}")
-    print(f"{'='*60}")
+    print(f"{'='*128}")
 
     X, y, feature_names = load_dataset(cfg.dataset)
 
@@ -118,4 +119,5 @@ def _save_results(df: pd.DataFrame, cfg: ExperimentConfig) -> None:
     agg_path = os.path.join(out_dir, "results_aggregated.csv")
     agg.to_csv(agg_path)
 
-    print(f"  Results saved to {out_dir}/")
+    print(f"CSVs saved to {out_dir}/")
+    generate_all_plots(raw_path, out_dir, cfg.dataset.name)

@@ -22,6 +22,11 @@ $RECYCLE.BIN/
 data/raw/
 data/processed/
 
+#Generated experiments
+experiments/adult_income/
+experiments/credit_card_fraud/
+experiments/give_me_some_credit/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -36,12 +41,6 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
-
-# Generated diagrams and figures
-experiments/results/**/*.png
-experiments/results/**/*.pdf
-experiments/results/**/*.svg
-notebooks/figures/
 
 # Environment
 .env

@@ -20,7 +20,7 @@ class ExperimentConfig:
     max_iterations: int = 500
     test_size: float = 0.1
     random_state: int = 42
-    results_dir: str = "experiments/results"
+    results_dir: str = "experiments"
 
 
 DATASETS: dict[str, DatasetConfig] = {

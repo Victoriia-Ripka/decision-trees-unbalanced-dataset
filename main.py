@@ -23,8 +23,8 @@ def parse_args():
     )
     parser.add_argument(
         "--results-dir",
-        default="experiments/results",
-        help="Directory for output CSV files (default: experiments/results).",
+        default="experiments",
+        help="Directory for output CSV files (default: experiments).",
     )
     parser.add_argument(
         "--random-state",
