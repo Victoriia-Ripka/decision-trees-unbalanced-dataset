@@ -171,6 +171,11 @@ python main.py --dataset adult_income
 
 Wyniki (CSV) trafiają do `experiments/<dataset>/`.
 
+Testy jednostkowe: 
+```basz
+python -m pytest tests/ -v
+```
+
 ---
 
 ## Zależności
