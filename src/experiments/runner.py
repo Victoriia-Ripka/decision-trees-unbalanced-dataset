@@ -10,8 +10,8 @@ from src.training.iterative import (
     N_SAMPLES_FRACS,
     N_SAMPLES_LABELS,
 )
-from src.models.cart import CARTModel
-from src.evaluation.metrics import compute_metrics
+from src.models.cart import MODELS
+from src.evaluation.metrics import compute_metrics, prefix_metrics
 from src.experiments.config import ExperimentConfig
 from src.experiments.plots import generate_all_plots
 
@@ -27,8 +27,10 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
     5. Return aggregated results as DataFrame
     """
     print(f"\n{'='*128}")
-    print(f"Dataset: {cfg.dataset.name}")
+    print(f"Dataset: {cfg.dataset.name}  |  Model: {cfg.model}")
     print(f"{'='*128}")
+
+    model_class = MODELS[cfg.model]
 
     X, y, feature_names = load_dataset(cfg.dataset)
 
@@ -48,9 +50,10 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
     )
 
     # Baseline M_0: trained on full (unbalanced) train set
-    m0 = CARTModel(random_state=cfg.random_state)
+    m0 = model_class(random_state=cfg.random_state)
     m0.fit(X_train_full, y_train_full)
     m0_metrics = compute_metrics(y_test, m0.predict(X_test))
+    m0_train_metrics = compute_metrics(y_train_full, m0.predict(X_train_full))
     print(f"\nBaseline M_0 (unbalanced): F1={m0_metrics['f1']:.4f}  "
           f"TPR={m0_metrics['tpr']:.4f}  Accuracy={m0_metrics['accuracy']:.4f}")
 
@@ -63,7 +66,9 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
 
     all_records.append({
         **m0_metrics,
+        **prefix_metrics(m0_train_metrics, "train"),
         "dataset":         cfg.dataset.name,
+        "model":           cfg.model,
         "n_samples_frac":  None,
         "n_samples_label": "M_0 (unbalanced)",
         "run":             -1,
@@ -90,9 +95,11 @@ def run_experiment(cfg: ExperimentConfig) -> pd.DataFrame:
             patience=cfg.patience,
             max_iterations=cfg.max_iterations,
             random_state=cfg.random_state,
+            model_class=model_class,
         )
         for r in records:
             r["dataset"] = cfg.dataset.name
+            r["model"] = cfg.model
             r["n_samples_label"] = label
         all_records.extend(records)
 
@@ -110,9 +117,10 @@ def _save_results(df: pd.DataFrame, cfg: ExperimentConfig) -> None:
     df.to_csv(raw_path, index=False)
 
     metric_cols = ["accuracy", "error", "tpr", "fpr", "precision", "f1"]
+    train_metric_cols = [f"train_{c}" for c in metric_cols]
     agg = (
         df[df["run"] >= 0]
-        .groupby(["n_samples_label", "iteration"])[metric_cols]
+        .groupby(["n_samples_label", "iteration"])[metric_cols + train_metric_cols]
         .agg(["mean", "std"])
         .round(6)
     )
