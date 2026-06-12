@@ -15,6 +15,7 @@ class DatasetConfig:
 @dataclass
 class ExperimentConfig:
     dataset: DatasetConfig
+    model: str = "cart"
     n_runs: int = 25
     patience: int = 10
     max_iterations: int = 500
