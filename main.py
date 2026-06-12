@@ -2,12 +2,19 @@ import argparse
 import sys
 
 from src.experiments.config import ExperimentConfig, DATASETS
+from src.models.cart import MODELS
 from src.experiments.runner import run_experiment
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Iterative training on unbalanced datasets with CART decision trees."
+    )
+    parser.add_argument(
+        "--model",
+        choices=list(MODELS.keys()),
+        default="cart",
+        help="Classifier to use: cart (native) or sklearn (default: cart).",
     )
     parser.add_argument(
         "--dataset",
@@ -55,6 +62,7 @@ def main():
     for name in dataset_names:
         cfg = ExperimentConfig(
             dataset=DATASETS[name],
+            model=args.model,
             n_runs=args.n_runs,
             patience=args.patience,
             max_iterations=args.max_iterations,
