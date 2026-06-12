@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from src.models.cart import CARTModel
-from src.evaluation.metrics import compute_metrics
+from src.evaluation.metrics import compute_metrics, prefix_metrics
 
 # Hyperparameter grid for n_samples (fraction of false positives added each iteration)
 N_SAMPLES_FRACS  = [0.005, 0.01, 0.02, 0.05, 0.10, 0.15, 0.25, 0.35, 1.0]
@@ -12,7 +12,7 @@ _MIN_POOL_FRACTION = 0.01
 
 
 def _select_false_positives(
-    model: CARTModel,
+    model,
     X_pool: np.ndarray,
     y_pool: np.ndarray,
 ) -> np.ndarray:
@@ -36,6 +36,7 @@ def run_single(
     patience: int = 10,
     max_iterations: int = 500,
     random_state=None,
+    model_class=CARTModel,
     _run_label: str = "",
 ) -> list[dict]:
     """
@@ -69,12 +70,14 @@ def run_single(
     )
 
     for iteration in bar:
-        model = CARTModel(random_state=int(rng.integers(0, 1_000_000)))
+        model = model_class(random_state=int(rng.integers(0, 1_000_000)))
         model.fit(X_train, y_train)
 
         metrics = compute_metrics(y_test, model.predict(X_test))
+        train_metrics = compute_metrics(y_train, model.predict(X_train))
         records.append({
             **metrics,
+            **prefix_metrics(train_metrics, "train"),
             "iteration":      iteration,
             "train_size":     len(X_train),
             "pool_remaining": len(X_pool),
@@ -135,6 +138,7 @@ def run_iterative_training(
     patience: int = 10,
     max_iterations: int = 500,
     random_state=None,
+    model_class=CARTModel,
 ) -> list[dict]:
     """
     Repeat run_single n_runs times for statistical averaging.
@@ -161,6 +165,7 @@ def run_iterative_training(
             patience=patience,
             max_iterations=max_iterations,
             random_state=seed,
+            model_class=model_class,
             _run_label=f" run={run}",
         )
         for r in records:
