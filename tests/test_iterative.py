@@ -50,7 +50,11 @@ class TestRunSingle:
     def test_all_required_metric_keys_present(self):
         args = _make_experiment()
         records = run_single(*args, n_samples_frac=0.10, random_state=0)
-        required = {"f1", "tpr", "fpr", "precision", "accuracy", "error", "tp", "tn", "fp", "fn"}
+        required = {
+            "f1", "tpr", "fpr", "precision", "accuracy", "error", "tp", "tn", "fp", "fn",
+            "train_f1", "train_tpr", "train_fpr", "train_precision", "train_accuracy",
+            "train_error", "train_tp", "train_tn", "train_fp", "train_fn",
+        }
         for r in records:
             assert required.issubset(r.keys())
 
