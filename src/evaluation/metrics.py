@@ -35,3 +35,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         "f1":        f1,
         "tp": tp, "tn": tn, "fp": fp, "fn": fn,
     }
+
+
+def prefix_metrics(metrics: dict, prefix: str) -> dict:
+    return {f"{prefix}_{k}": v for k, v in metrics.items()}
