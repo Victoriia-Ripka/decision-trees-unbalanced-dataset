@@ -1,3 +1,4 @@
+# Autorzy: Viktoriia Nowotka, Paweł Łasica
 import numpy as np
 from tqdm import tqdm
 from src.models.cart import CARTModel

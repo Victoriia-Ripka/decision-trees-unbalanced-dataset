@@ -1,3 +1,4 @@
+# Autorzy: Viktoriia Nowotka, Paweł Łasica
 from dataclasses import dataclass, field
 
 

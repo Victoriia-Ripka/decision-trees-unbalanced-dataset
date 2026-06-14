@@ -1,3 +1,4 @@
+# Autorzy: Viktoriia Nowotka, Paweł Łasica
 import numpy as np
 import pytest
 import sys, os

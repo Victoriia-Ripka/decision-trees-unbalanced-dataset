@@ -1,3 +1,4 @@
+# Autorzy: Viktoriia Nowotka, Paweł Łasica
 import argparse
 import sys
 

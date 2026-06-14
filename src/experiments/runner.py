@@ -1,3 +1,4 @@
+# Autorzy: Viktoriia Nowotka, Paweł Łasica
 import os
 import numpy as np
 import pandas as pd
