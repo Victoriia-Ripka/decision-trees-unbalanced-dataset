@@ -1,202 +1,194 @@
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 
-# Klasa wezla drzewa pozostaje struktura lekka dzieki __slots__
 class _Node:
-    # __slots__ blokuje tworzenie slownika __dict__, co oszczedza pamiec przy duzych drzewach
+    # this block the creation of the __dict__ attribute which saves memory when the tree is large
     __slots__ = ("feat", "thresh", "left", "right", "value")
 
-    # Inicjalizacja wezla
     def __init__(self, value=None):
-        # Indeks cechy, wzgledem ktorej nastepuje podzial w tym wezle
+        # index of the feature that is used to split the node
         self.feat = None
-        # Wartosc progowa podzialu dla wybranej cechy
+        # threshold value for the split of the node
         self.thresh = None
-        # Wskaznik na lewe poddrzewo (dla x < thresh)
+        # pointer to the left child node 
         self.left = None
-        # Wskaznik na prawe poddrzewo (dla x >= thresh)
+        # pointer to the right child node
         self.right = None
-        # Wartosc predykcji, zdefiniowana glownie dla lisci (najczestsza klasa)
+        # prediction value  mainly defined for leafs (most frequent class)
         self.value = value
 
 
-# Glowna klasa modelu drzewa decyzyjnego
 class CARTModel:
-    # Konstruktor przyjmujacy parametry regularyzacyjne
-    def __init__(self, max_depth=None, min_samples_leaf=1, random_state=None):
-        # Maksymalna dopuszczalna glebokosc drzewa (None = brak limitu)
+    def __init__(self, max_depth=10, min_samples_leaf=1, random_state=None):
         self.max_depth = max_depth
-        # Rzeczywista minimalna liczba probek wymagana w kazdym z lisci po podziale
+        #  mini number of samples required in each leaf after the split
         self.min_samples_leaf = min_samples_leaf
-        # Nowoczesny, bezpieczny wielowatkowo generator liczb pseudolosowych
+        # rng generator
         self.rng = np.random.default_rng(random_state)
-        # Wskaznik na glowny wezel (korzen) drzewa
+        # root node
         self.root = None
-        # Tablica przetrzymujaca unikalne etykiety klas (pozwala na uzywanie np. stringow)
+        # stores uinique class labels
         self.classes_ = None
-        # Liczba unikalnych klas w zbiorze treningowym
+        # no. of classes
         self.n_classes_ = 0
 
-    # Metoda trenujaca model
+
     def fit(self, X: np.ndarray, y: np.ndarray) -> "CARTModel":
-        # Znajdujemy unikalne etykiety i mapujemy oryginalne y na wartosci od 0 do C-1
+        # finds unique labels and maps original y to values from 0 to C-1
         self.classes_, y_int = np.unique(y, return_inverse=True)
-        # Zapisujemy liczbe zidentyfikowanych klas
+        # saves the number classes
         self.n_classes_ = len(self.classes_)
-        # Inicjujemy rekurencyjne budowanie drzewa od poziomu 0
+        # build the tree via recusion  
         self.root = self._build(X, y_int, 0)
-        # Zwracamy wyuczony obiekt
         return self
 
-    # Rekurencyjna metoda budujaca strukture wezlow
     def _build(self, X, y, depth):
-        # Liczba probek, ktore dotarly do tego wezla
+        # no. of samples in the node
         n_samples = len(y)
-        # Zliczamy wystapienia kazdej klasy w biezacym wezle uzywajac wewnetrznych intow
+        # count each class occurence 
         counts = np.bincount(y, minlength=self.n_classes_)
-        # Odczytujemy oryginalna etykiete najczesciej wystepujacej klasy
+        # get the most frequent class
         node_value = self.classes_[counts.argmax()]
-        # Tworzymy wezel przypisujac mu dominujaca etykiete jako wartosc predykcji
+        # create a node assigning the most frequent class as the prediction value
         node = _Node(value=node_value)
 
-        # Warunki stopu rekurencji
-        # 1. Osiagnieto maksymalna glebokosc
-        # 2. Nie mamy wystarczajaco probek, aby zachowac min_samples_leaf po obu stronach
-        # 3. Wezel jest w 100% czysty (wszystkie probki naleza do jednej klasy)
-        if (self.max_depth is not None and depth >= self.max_depth) or \
-           (n_samples < 2 * self.min_samples_leaf) or \
+        # stopping conditions for the recursion
+        # reached the maximum depth 
+        # or 
+        # not enough samples to satisfy min_samples_leaf on both sides
+        # or 
+        # node is 100% pure (all samples belong to one class)
+        if (self.max_depth is not None and depth >= self.max_depth) or (n_samples < 2 * self.min_samples_leaf) or \
            (np.max(counts) == n_samples):
-            # Zwracamy wezel bez podzialow (staje sie lisciem)
+            # return the node without splits - leaf
             return node
 
-        # Zmienne przechowujace informacje o najlepszym znalezionym podziale
+        # best split vars 
         best_gini = float('inf')
         best_feat = None
         best_thresh = None
 
-        # Iterujemy przez wszystkie dostepne cechy (kolumny w X)
         for feat_idx in range(X.shape[1]):
-            # Wektor wartosci dla danej cechy
+            # vector of values for the current feature
             feature_values = X[:, feat_idx]
             
-            # Aby uniknac zlozonosci O(N^2), sortujemy probki po wartosciach biezacej cechy
+            # to avoid complexity O(N^2), sort the samples by the current feature values
+            # retrieve via indices
             order = np.argsort(feature_values)
             X_sorted = feature_values[order]
             y_sorted = y[order]
 
-            # Inicjujemy liczniki klas dla lewej czesci podzialu (poczatkowo puste)
+            # init class cnt for left split
             left_counts = np.zeros(self.n_classes_, dtype=int)
-            # Inicjujemy liczniki klas dla prawej czesci (poczatkowo wszystkie probki)
+            # init class cnt for right split
             right_counts = counts.copy()
 
-            # Iteracyjnie przenosimy probki z prawej strony na lewa, analizujac podzial miedzy nimi
+            # iterativly move samples from right to left and analyse the split between them
             for i in range(1, n_samples):
-                # Klasa przenoszonej wlasnie probki
+                # current class of sample being moved
                 c = y_sorted[i - 1]
-                # Zwiekszamy licznik tej klasy po lewej stronie
                 left_counts[c] += 1
-                # Zmniejszamy licznik tej klasy po prawej stronie
                 right_counts[c] -= 1
 
-                # Jesli wartosc cechy sie nie zmienila miedzy sasiadami, nie mozemy w tym miejscu przeciac
+                # if the feature value is the same as the previous one, we cannot split here
                 if X_sorted[i] == X_sorted[i - 1]:
-                    # Pomijamy ten punkt i idziemy do kolejnej probki
                     continue
 
-                # Sprawdzamy prawdziwy warunek min_samples_leaf (dla obu powstajacych dzieci)
+                # check if the feature value is the same as the previous one, we cannot split here
                 if i < self.min_samples_leaf or (n_samples - i) < self.min_samples_leaf:
-                    # Jesli ktoras strona ma za malo probek, odrzucamy ten potencjalny podzial
                     continue
 
-                # Obliczamy sume kwadratow zliczen potrzebna do wzoru Giniego
+                # gini sum of squares
                 sum_left_sq = np.sum(left_counts ** 2)
                 sum_right_sq = np.sum(right_counts ** 2)
                 
-                # Zanieczyszczenie Giniego dla lewego wezla-dziecka (G = 1 - sum(p_i^2))
-                gini_left = 1.0 - sum_left_sq / (i * i)
-                # Zanieczyszczenie Giniego dla prawego wezla-dziecka
+                # gini impurity for the left child := 1 - sum(proba_i^2)
+                gini_left = 1.0 - sum_left_sq / (i * i) # its proba value
+                # ini impurity for the left child := 1 - sum(proba_i^2)
                 gini_right = 1.0 - sum_right_sq / ((n_samples - i) * (n_samples - i))
                 
-                # Wazone zanieczyszczenie obu wezlow na podstawie liczby probek w kazdym z nich
+                # weighted gini impurity := (i * gini_left + (n_samples - i) * gini_right) / n_samples
                 weighted_gini = (i * gini_left + (n_samples - i) * gini_right) / n_samples
 
-                # Sprawdzamy czy znaleziony wynik jest wyraznie lepszy od dotychczasowego
-                # Lub, jesli jest identyczny, decydujemy rzutem monety dla zlamania remisow
+                # check if the current split is better than the best so far
+                # or if it is the same, decide via coin flip for tie breaking
+                # this should give us a random tie breaking instead of deterministic one
+                # because the split is random and we want to avoid bias
                 if weighted_gini < best_gini - 1e-9 or \
                    (abs(weighted_gini - best_gini) <= 1e-9 and self.rng.random() < 0.5):
                     
-                    # Zapisujemy nowe najlepsze wyniki
+                    # save the new best results
                     best_gini = weighted_gini
-                    # Zapisujemy indeks najlepszej cechy
+                    # save the index of the best feature
                     best_feat = feat_idx
-                    # Wartosc odciecia to srednia z dwoch sasiadujacych punktow podzialu
+                    # threshold value is the average of the two adjacent split points
                     best_thresh = (X_sorted[i] + X_sorted[i - 1]) / 2.0
 
-        # Jesli nie znaleziono zadnego validnego podzialu (np. brak spelnienia min_samples_leaf)
+        # if no valid split is found 
         if best_feat is None:
-            # Wezel staje sie lisciem
+            # become a leaf
             return node
 
-        # Generujemy maske logiczna dla najlepszego podzialu na calym wektorze (bez sortowania)
+        # create a mask for the best split on the whole vector (without sorting)
         left_mask = X[:, best_feat] < best_thresh
         
-        # Zapisujemy parametry podzialu we wlasciwosciach wezla
+        # save the split parameters in the node's attributes
         node.feat = best_feat
         node.thresh = best_thresh
         
-        # Rekurencyjnie budujemy lewe odgalezienie, przekazujac przefiltrowane dane
+        # recursively build the left branch, passing the filtered data
         node.left = self._build(X[left_mask], y[left_mask], depth + 1)
-        # Rekurencyjnie budujemy prawe odgalezienie na pozostalej czesci danych
+        # recursively build the right branch on the remaining data
         node.right = self._build(X[~left_mask], y[~left_mask], depth + 1)
         
-        # Zwracamy wezel z poprawnie doczepionymi odgalezieniami
+        # return the node with properly attached branches
         return node
 
-    # Metoda dokonujaca predykcji dla wektora badz macierzy wejsciowej X
+    # method to predict for a vector or matrix input X
     def predict(self, X: np.ndarray) -> np.ndarray:
-        # Tworzymy pusta tablice wynikowa o typie takim samym jak oryginalne etykiety
+        # create an empty array with the same type as the original labels
         out = np.empty(len(X), dtype=self.classes_.dtype)
         
-        # Iterujemy przez wszystkie wektory cech w macierzy X
+        # iterate  all feature vectors in the matrix X
         for i, x in enumerate(X):
-            # Zaczynamy poszukiwania od korzenia drzewa
+            # start searching from the root
             node = self.root
-            # Dopoki wezel posiada zdefiniowany podzial (nie jest lisciem)
+            # while the node has a defined split (not a leaf)
             while node.feat is not None:
-                # Wybieramy lewa lub prawa strone na podstawie progu i wartosci cechy probki
+                # choose the left or right side based on the threshold and feature value of the sample
                 node = node.left if x[node.feat] < node.thresh else node.right
-            # Odczytana po dojsciu do liscia wartosc staje sie nasza predykcja
+            # the value read after reaching a leaf becomes our prediction
             out[i] = node.value
             
-        # Zwracamy caly wektor wynikowy
+        # return the  output vector
         return out
         
-    # Rekurencyjna metoda zliczajaca maksymalna glebokosc od wybranego wezla
+    # recursive method to count the maximum depth from the selected node
     def _tree_depth(self, node):
-        # Jesli jestesmy w lisciu, osiagnelismy glebokosc 1 na tej sciezce
+        # if we are in a leaf, we have reached depth 1 on this path
         if node.feat is None:
             return 1
-        # Zwracamy 1 plus wieksza z glebokosci miedzy lewym a prawym dzieckiem
+        # return 1 plus the greater depth between the left and right child
         return 1 + max(self._tree_depth(node.left), self._tree_depth(node.right))
 
-    # Rekurencyjna metoda zliczajaca ilosc ostatecznych lisci w strukturze
+    # recursive method to count the final leaves in the structure
     def _count_leaves(self, node):
-        # Jesli wezel jest lisciem, zliczamy go jako 1
+        # if the node is a leaf, count it as 1
         if node.feat is None:
             return 1
-        # W przeciwnym razie jest to suma lisci w lewym i prawym poddrzewie
+        # otherwise it is the sum of leaves in the left and right subtree
         return self._count_leaves(node.left) + self._count_leaves(node.right)
 
-    # Dekorator property pozwala na pobranie glebokosci jak atrybutu (bez nawiasow obj.depth)
+    # decorator property allows to get the depth as an attribute (without parentheses obj.depth)
     @property
     def depth(self) -> int:
-        # Przekazujemy korzen do metody liczacej glebokosc
+        # pass the root to the method counting the depth
         return self._tree_depth(self.root)
 
-    # Dekorator property pozwala na pobranie liczby lisci (obj.n_leaves)
+    # decorator property allows to get the number of leaves as an attribute (without parentheses obj.n_leaves)
     @property
     def n_leaves(self) -> int:
-        # Przekazujemy korzen do metody zliczajacej liscie
+        # pass the root to the method counting the leaves
         return self._count_leaves(self.root)
 
 class SklearnCARTModel:
